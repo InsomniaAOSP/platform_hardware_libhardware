@@ -33,13 +33,11 @@ __BEGIN_DECLS
 #define KEYSTORE_KEYMASTER "keymaster"
 
 /**
- * Settings for "module_api_version" and "hal_api_version"
- * fields in the keymaster_module initialization.
+ * The API level of this version of the header. The allows the implementing
+ * module to recognize which API level of the client it is dealing with in
+ * the case of pre-compiled binary clients.
  */
-#define KEYMASTER_HEADER_VERSION 2
-
-#define KEYMASTER_MODULE_API_VERSION_0_2  HARDWARE_MODULE_API_VERSION(0, 2)
-#define KEYMASTER_DEVICE_API_VERSION_0_2  HARDWARE_DEVICE_API_VERSION_2(0, 2, KEYMASTER_HEADER_VERSION)
+#define KEYMASTER_API_VERSION 1
 
 /**
  * Flags for keymaster_device::flags
@@ -64,8 +62,6 @@ struct keystore_module {
  */
 typedef enum {
     TYPE_RSA = 1,
-    TYPE_DSA = 2,
-    TYPE_EC = 3,
 } keymaster_keypair_t;
 
 /**
@@ -77,42 +73,11 @@ typedef struct {
 } keymaster_rsa_keygen_params_t;
 
 /**
- * Parameters needed to generate a DSA key.
- */
-typedef struct {
-    uint32_t key_size;
-    uint32_t generator_len;
-    uint32_t prime_p_len;
-    uint32_t prime_q_len;
-    const uint8_t* generator;
-    const uint8_t* prime_p;
-    const uint8_t* prime_q;
-} keymaster_dsa_keygen_params_t;
-
-/**
- * Parameters needed to generate an EC key.
- *
- * Field size is the only parameter in version 2. The sizes correspond to these required curves:
- *
- * 192 = NIST P-192
- * 224 = NIST P-224
- * 256 = NIST P-256
- * 384 = NIST P-384
- * 521 = NIST P-521
- *
- * The parameters for these curves are available at: http://www.nsa.gov/ia/_files/nist-routines.pdf
- * in Chapter 4.
- */
-typedef struct {
-    uint32_t field_size;
-} keymaster_ec_keygen_params_t;
-
-/**
- * Digest type.
+ * Digest type used for RSA operations.
  */
 typedef enum {
     DIGEST_NONE,
-} keymaster_digest_t;
+} keymaster_rsa_digest_t;
 
 /**
  * Type of padding used for RSA operations.
@@ -121,17 +86,8 @@ typedef enum {
     PADDING_NONE,
 } keymaster_rsa_padding_t;
 
-
 typedef struct {
-    keymaster_digest_t digest_type;
-} keymaster_dsa_sign_params_t;
-
-typedef struct {
-    keymaster_digest_t digest_type;
-} keymaster_ec_sign_params_t;
-
-typedef struct {
-    keymaster_digest_t digest_type;
+    keymaster_rsa_digest_t digest_type;
     keymaster_rsa_padding_t padding_type;
 } keymaster_rsa_sign_params_t;
 
@@ -141,10 +97,6 @@ typedef struct {
 struct keymaster_device {
     struct hw_device_t common;
 
-    /**
-     * THIS IS DEPRECATED. Use the new "module_api_version" and "hal_api_version"
-     * fields in the keymaster_module initialization instead.
-     */
     uint32_t client_version;
 
     /**
@@ -243,6 +195,10 @@ static inline int keymaster_open(const struct hw_module_t* module,
 {
     int rc = module->methods->open(module, KEYSTORE_KEYMASTER,
             (struct hw_device_t**) device);
+
+    if (!rc) {
+        (*device)->client_version = KEYMASTER_API_VERSION;
+    }
 
     return rc;
 }
